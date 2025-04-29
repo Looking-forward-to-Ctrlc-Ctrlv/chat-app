@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 # Create your models here.
 
 class UserProfileModel(models.Model):
+    objects = models.Manager()
     user = models.OneToOneField(to=User, on_delete=models.CASCADE)
     name = models.CharField(blank=True, null=True, max_length=100)
     online_status = models.BooleanField(default=False)
@@ -13,6 +14,7 @@ class UserProfileModel(models.Model):
 
 
 class ChatModel(models.Model):
+    objects = models.Manager()
     sender = models.CharField(max_length=100, default=None)
     message = models.TextField(null=True, blank=True)
     thread_name = models.CharField(null=True, blank=True, max_length=50)
@@ -25,7 +27,7 @@ class ChatNotification(models.Model):
     chat = models.ForeignKey(to=ChatModel, on_delete=models.CASCADE)
     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
     is_seen = models.BooleanField(default=False)
-
+    objects = models.Manager()
     def __str__(self) -> str:
         return self.user.username
 

@@ -21,15 +21,15 @@ from chats.consumers import PersonalChatConsumer, OnlineStatusConsumer, Notifica
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'whatsapp_clone.settings')
 
-application = get_asgi_application()
-
+django_asgi_app = get_asgi_application()
 
 application = ProtocolTypeRouter({
+    'http': django_asgi_app,
     'websocket': AuthMiddlewareStack(
         URLRouter([
-            path('ws/<int:id>/', PersonalChatConsumer),
-            path('ws/online/', OnlineStatusConsumer),
-            path('ws/notify/', NotificationConsumer)
+            path('ws/<int:id>/', PersonalChatConsumer.as_asgi()),
+            path('ws/online/', OnlineStatusConsumer.as_asgi()),
+            path('ws/notification/<int:id>/', NotificationConsumer.as_asgi())
         ])
     )
 })

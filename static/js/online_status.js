@@ -1,41 +1,50 @@
-const loggedin_user = JSON.parse(document.getElementById('json-message-username').textContent);
-const online_status = new WebSocket(
+// Online Status WebSocket
+const onlineSocket = new WebSocket(
     'ws://'
     + window.location.host
-    + '/ws/'
-    + 'online/'
-)
+    + '/ws/online/'
+);
 
-online_status.onopen = function(e){
-    console.log("CONNECTED TO ONLINE CONSUMER");
-    online_status.send(JSON.stringify({
-        'username':loggedin_user,
-        'type':'open'
-    }))
-}
+// Handle connection events
+onlineSocket.onopen = function(e) {
+    console.log("Online status socket connected");
+    
+    // Send online status when connected
+    const username = JSON.parse(document.getElementById('json-message-username').textContent);
+    onlineSocket.send(JSON.stringify({
+        'username': username,
+        'type': 'open'
+    }));
+};
 
-window.addEventListener("beforeunload", function(e){
-    online_status.send(JSON.stringify({
-        'username':loggedin_user,
-        'type':'offline'
-    }))
-})
-
-online_status.onclose = function(e){
-    console.log("DISCONNECTED FROM ONLINE CONSUMER")
-}
-
-online_status.onmessage = function(e){
-    var data = JSON.parse(e.data)
-    if(data.username != loggedin_user){
-        var user_to_change = document.getElementById(`${data.username}_status`)
-        var small_status_to_change = document.getElementById(`${data.username}_small`)
-        if(data.online_status == true){
-            user_to_change.style.color = 'green'
-            small_status_to_change.textContent = 'Online'
-        }else{
-            user_to_change.style.color = 'grey'
-            small_status_to_change.textContent = 'Offline'
-        }
+// Handle online status messages
+onlineSocket.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+    const username = data.username;
+    const onlineStatus = data.online_status;
+    
+    // Update user status in the contacts list
+    const userStatus = document.getElementById(`${username}_status`);
+    if (userStatus) {
+        userStatus.style.color = onlineStatus ? 'green' : 'grey';
     }
-}
+    
+    // Update user status in the chat header if applicable
+    const userStatusSmall = document.getElementById(`${username}_small`);
+    if (userStatusSmall) {
+        userStatusSmall.textContent = onlineStatus ? 'Online' : 'Offline';
+    }
+};
+
+// Update status when leaving the page
+window.addEventListener('beforeunload', function() {
+    const username = JSON.parse(document.getElementById('json-message-username').textContent);
+    onlineSocket.send(JSON.stringify({
+        'username': username,
+        'type': 'close'
+    }));
+});
+
+onlineSocket.onclose = function(e) {
+    console.log("Online status socket disconnected");
+};

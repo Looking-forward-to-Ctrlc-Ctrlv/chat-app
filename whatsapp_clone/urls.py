@@ -15,11 +15,15 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from chats.views import index, chatPage
+from chats.views import index, chatPage,mark_notifications_seen
+from django.views.generic.base import TemplateView
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include(('accounts.urls', 'accounts'), namespace='accounts')),
     path('', index, name='home'),
     path('chat/<str:username>/', chatPage, name='chat'),
+    path('mark-notifications-seen/', mark_notifications_seen, name='mark_notifications_seen'),
+    path('service_worker/',include("chats.urls"))
 ]
