@@ -17,6 +17,9 @@ from django.contrib import admin
 from django.urls import path, include
 from chats.views import index, chatPage,mark_notifications_seen
 from django.views.generic.base import TemplateView
+from django.conf.urls.static import static
+from django.conf import settings
+
 
 
 urlpatterns = [
@@ -26,4 +29,4 @@ urlpatterns = [
     path('chat/<str:username>/', chatPage, name='chat'),
     path('mark-notifications-seen/', mark_notifications_seen, name='mark_notifications_seen'),
     path('service_worker/',include("chats.urls"))
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

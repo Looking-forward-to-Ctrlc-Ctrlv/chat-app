@@ -59,4 +59,18 @@
 .message-box {
   background-color: #f0f0f0;
 }
+.file-message {
+    color: white;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+}
 
+.file-message:hover {
+    color: #e6e6e6;
+    text-decoration: underline;
+}
+
+.file-icon {
+    margin-right: 8px;
+}

@@ -137,6 +137,9 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
+MEDIA_URL = '/chat_files/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'chat_files')
+
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
     # 'content/static',

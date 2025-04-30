@@ -1,6 +1,8 @@
 from django.shortcuts import render
 from django.contrib.auth import get_user_model
-from chats.models import ChatModel
+from django.views.decorators.csrf import csrf_exempt
+
+from chats.models import ChatModel, ChatFile
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
@@ -8,6 +10,8 @@ from chats.models import ChatNotification
 import json
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from django.http import HttpResponse
+import os
 # Create your views here.
 
 
@@ -52,9 +56,6 @@ def mark_notifications_seen(request):
 
     return JsonResponse({'success': True})
 
-from django.http import HttpResponse
-import os
-
 def sw_file(request):
     # Define the correct path to your service worker file
     sw_file_path = 'static/js/sw.js'
@@ -68,3 +69,31 @@ def sw_file(request):
         return response
     else:
         return HttpResponse('Service Worker file not found', status=404)
+
+
+@login_required
+@csrf_exempt
+def upload_file(request):
+    if request.method == 'POST' and request.FILES.get('file'):
+        uploaded_file = request.FILES['file']
+        thread_name = request.POST.get('thread_name')
+
+        # Create file record
+        chat_file = ChatFile.objects.create(
+            file=uploaded_file,
+            filename=uploaded_file.name,
+            file_type=os.path.splitext(uploaded_file.name)[1],
+            uploader=request.user,
+            thread_name=thread_name
+        )
+
+        # Return file info as JSON
+        return JsonResponse({
+            'status': 'success',
+            'file_id': chat_file.id,
+            'filename': chat_file.filename,
+            'file_url': chat_file.file.url,
+            'file_type': chat_file.file_type
+        })
+
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)

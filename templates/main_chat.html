@@ -5,6 +5,25 @@
 
 {% block css %}
 <link rel="stylesheet" href="{% static 'css/index.css' %}">
+<style>
+    .file-upload-btn {
+        display: inline-block;
+        cursor: pointer;
+        margin-right: 10px;
+    }
+    .file-input {
+        display: none;
+    }
+    .file-name {
+        font-size: 12px;
+        color: #555;
+        margin-top: 5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100px;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -20,18 +39,15 @@
                 <span class="ml-2">{{request.user.username}}</span>
                 <span class="float-right mt-2">
                     <div class="notification" style="position: relative; display: inline-block; cursor: pointer;">
-    <i class="fa fa-bell-o" aria-hidden="true"></i>
-    <span class="badge" id="count_badge" style="position: absolute; top: -8px; right: -8px; background-color: red; color: white; border-radius: 50%; padding: 3px 6px; font-size: 10px; display: none;"></span>
-
-    <!-- Dropdown, hidden initially -->
-    <div id="notification-dropdown" class="notification-dropdown" style="display: none; position: absolute; background-color: white; border: 1px solid #ddd; border-radius: 5px; padding: 10px; width: 300px; max-height: 400px; overflow-y: auto; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.2); top: 30px; right: 0;">
-        <div id="notification-items"></div>
-        <button id="mark-all-read-btn" class="mark-all-read-btn" style="margin-top: 10px; width: 100%; padding: 8px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; display: none;">
-            Mark all as Read
-        </button>
-    </div>
-</div>
-
+                        <i class="fa fa-bell-o" aria-hidden="true"></i>
+                        <span class="badge" id="count_badge" style="position: absolute; top: -8px; right: -8px; background-color: red; color: white; border-radius: 50%; padding: 3px 6px; font-size: 10px; display: none;"></span>
+                        <div id="notification-dropdown" class="notification-dropdown" style="display: none; position: absolute; background-color: white; border: 1px solid #ddd; border-radius: 5px; padding: 10px; width: 300px; max-height: 400px; overflow-y: auto; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.2); top: 30px; right: 0;">
+                            <div id="notification-items"></div>
+                            <button id="mark-all-read-btn" class="mark-all-read-btn" style="margin-top: 10px; width: 100%; padding: 8px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; display: none;">
+                                Mark all as Read
+                            </button>
+                        </div>
+                    </div>
                     <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-chat-left-fill mx-3"
                         fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                         <path fill-rule="evenodd"
@@ -133,11 +149,20 @@
                             <path
                                 d="M7 6.5C7 7.328 6.552 8 6 8s-1-.672-1-1.5S5.448 5 6 5s1 .672 1 1.5zm4 0c0 .828-.448 1.5-1 1.5s-1-.672-1-1.5S9.448 5 10 5s1 .672 1 1.5z" />
                         </svg>
-                        <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-paperclip mx-2"
-                            fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                            <path fill-rule="evenodd"
-                                d="M4.5 3a2.5 2.5 0 0 1 5 0v9a1.5 1.5 0 0 1-3 0V5a.5.5 0 0 1 1 0v7a.5.5 0 0 0 1 0V3a1.5 1.5 0 1 0-3 0v9a2.5 2.5 0 0 0 5 0V5a.5.5 0 0 1 1 0v7a3.5 3.5 0 1 1-7 0V3z" />
-                        </svg>
+
+                        <!-- File upload button and input -->
+                        <label for="myFile" class="file-upload-btn">
+                            <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-paperclip" fill="currentColor"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd"
+                                    d="M4.5 3a2.5 2.5 0 0 1 5 0v9a1.5 1.5 0 0 1-3 0V5a.5.5 0 0 1 1 0v7a.5.5 0 0 0 1 0V3a1.5 1.5 0 0 0-3 0v9a2.5 2.5 0 0 0 5 0V5a.5.5 0 0 1 1 0v7a3.5 3.5 0 0 1-7 0V3z" />
+                            </svg>
+                        </label>
+                        <input type="file" id="myFile" name="file" class="file-input">
+                        <div id="selected-file-name" class="file-name"></div>
+
+                        <input type="hidden" name="thread_name" value="{{ thread_name }}">
+
                         <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-cash" fill="currentColor"
                             xmlns="http://www.w3.org/2000/svg">
                             <path fill-rule="evenodd"
@@ -171,6 +196,20 @@
 <script src="{% static 'js/chat.js' %}"></script>
 <script src="{% static 'js/online_status.js' %}"></script>
 <script src="{% static 'js/notify.js' %}"></script>
+
+<script>
+    // Show selected filename when file is chosen
+    document.getElementById('myFile').addEventListener('change', function() {
+        const fileNameElement = document.getElementById('selected-file-name');
+        if (this.files.length > 0) {
+            fileNameElement.textContent = this.files[0].name;
+            fileNameElement.style.display = 'block';
+        } else {
+            fileNameElement.textContent = '';
+            fileNameElement.style.display = 'none';
+        }
+    });
+</script>
 {% endblock %}
 
 <script>
