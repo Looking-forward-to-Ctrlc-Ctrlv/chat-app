@@ -33,6 +33,7 @@ class ChatNotification(models.Model):
 
 
 class ChatFile(models.Model):
+    objects = models.Manager()
     file = models.FileField(upload_to='chat_files/')
     filename = models.CharField(max_length=255)
     file_type = models.CharField(max_length=100)

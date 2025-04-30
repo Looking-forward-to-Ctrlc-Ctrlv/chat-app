@@ -15,6 +15,9 @@ import os
 # Create your views here.
 
 
+
+
+
 User = get_user_model()
 
 
@@ -97,3 +100,39 @@ def upload_file(request):
         })
 
     return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
+
+
+def get_file_details(request, file_id):
+    """
+    Get file details by file ID for chat messages
+    """
+    try:
+        # Get the file object
+        file_id = file_id - 1
+        file_obj = ChatFile.objects.get(id=file_id)
+        print(file_obj.filename)
+        # Check if user has permission (is part of the chat thread)
+        thread_name = file_obj.thread_name
+        thread_id = thread_name.replace('chat_', '')
+        user_ids = [int(uid) for uid in thread_id.split('-')]
+
+        if request.user.id not in user_ids:
+            return JsonResponse({'error': 'Permission denied'}, status=403)
+
+        # Get file URL
+        file_url = request.build_absolute_uri(file_obj.file.url) if hasattr(file_obj.file, 'url') else str(
+            file_obj.file)
+        print(file_url)
+
+        # Return file details
+        return JsonResponse({
+            'file_id': file_obj.id,
+            'filename': file_obj.filename,
+            'file_type': file_obj.file_type,
+            'file_url': file_url,
+            'file_size': file_obj.file.size if hasattr(file_obj.file, 'size') else 0
+        })
+    except ChatFile.DoesNotExist:
+        return JsonResponse({'error': 'File not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

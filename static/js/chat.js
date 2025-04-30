@@ -46,33 +46,39 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Check if this is a file message
         if (data.message_type === 'file' && data.file_data) {
+            // Real-time file message with all data already available
             const fileData = data.file_data;
+            messageContent = createFileMessageHTML(fileData);
+        } else if (data.message && (data.message.startsWith('Sent a file:') || data.message.includes('[file_id:'))) {
+            // This is a file message loaded after refresh - extract file ID
+            const fileIdMatch = data.message.match(/\[file_id:(\d+)\]/);
 
-            if (fileData.file_type.startsWith('image/')) {
-                messageContent = `
-                    <div>
-                        <img src="${fileData.file_url}" alt="${fileData.filename}" style="max-width: 200px; max-height: 150px; border-radius: 5px; margin-bottom: 5px;">
-                        <div><a href="${fileData.file_url}" download style="color: white; text-decoration: underline;">${fileData.filename}</a></div>
-                    </div>`;
-            } else if (fileData.file_type === 'application/pdf' || fileData.filename.toLowerCase().endsWith('.pdf')) {
-                // For PDFs - show PDF icon
-                messageContent = `
-                    <div>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="white" style="margin-bottom: 5px;">
-                            <path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z"/>
-                        </svg>
-                        <div><a href="${fileData.file_url}" target="_blank" download style="color: white; text-decoration: underline;">${fileData.filename}</a></div>
-                    </div>`;
+            if (fileIdMatch && fileIdMatch[1]) {
+                const fileId = fileIdMatch[1];
+                const messageId = `file-msg-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+
+                // Start with a loading placeholder
+                messageContent = `<div id="${messageId}" class="file-message-placeholder">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="white" class="animate-spin" style="animation: spin 1s linear infinite;">
+                        <path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z"/>
+                    </svg>
+                    <div>Loading file...</div>
+                </div>`;
+
+                // Fetch and update after rendering
+                setTimeout(() => {
+                    fetchFileDetails(fileId).then(fileData => {
+                        if (fileData) {
+                            const fileElement = document.getElementById(messageId);
+                            if (fileElement) {
+                                fileElement.innerHTML = createFileMessageHTML(fileData);
+                            }
+                        }
+                    });
+                }, 100);
             } else {
-                // For other files - generic file icon
-                messageContent = `
-                    <div>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="white" style="margin-bottom: 5px;">
-                            <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-                        </svg>
-                        <div><a href="${fileData.file_url}" download style="color: white; text-decoration: underline;">${fileData.filename}</a></div>
-                        <small style="color: rgba(255,255,255,0.7);">${formatFileSize(fileData.file_size)}</small>
-                    </div>`;
+                // Fallback to just showing the message text
+                messageContent = data.message;
             }
         } else {
             // Regular text message
@@ -89,7 +95,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </p>
                     </td>
                     <td>
-                        <p><small class="p-1 shadow-sm">${getCurrentTime()}</small></p>
+                        <p><small class="p-1 shadow-sm">${data.timestamp || getCurrentTime()}</small></p>
                     </td>
                 </tr>`;
         } else {
@@ -101,7 +107,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </p>
                     </td>
                     <td>
-                        <p><small class="p-1 shadow-sm">${getCurrentTime()}</small></p>
+                        <p><small class="p-1 shadow-sm">${data.timestamp || getCurrentTime()}</small></p>
                     </td>
                 </tr>`;
         }
@@ -110,6 +116,42 @@ document.addEventListener('DOMContentLoaded', function() {
         const chatBody = document.querySelector('.message-table-scroll');
         chatBody.scrollTop = chatBody.scrollHeight;
     };
+
+    // Process existing messages on page load to handle file references
+    function processExistingMessages() {
+        const messageElements = document.querySelectorAll('#chat-body tr p.rounded');
+
+        messageElements.forEach(element => {
+            // Check if this message contains a file reference
+            const content = element.textContent.trim();
+            if (content.includes('[file_id:')) {
+                const fileIdMatch = content.match(/\[file_id:(\d+)\]/);
+
+                if (fileIdMatch && fileIdMatch[1]) {
+                    const fileId = fileIdMatch[1];
+                    const messageId = `existing-file-${fileId}`;
+
+                    // Replace with loading placeholder
+                    element.innerHTML = `<div id="${messageId}" class="file-message-placeholder">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="white" class="animate-spin" style="animation: spin 1s linear infinite;">
+                            <path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z"/>
+                        </svg>
+                        <div>Loading file...</div>
+                    </div>`;
+
+                    // Fetch file details and update
+                    fetchFileDetails(fileId).then(fileData => {
+                        if (fileData) {
+                            const fileElement = document.getElementById(messageId);
+                            if (fileElement) {
+                                fileElement.innerHTML = createFileMessageHTML(fileData);
+                            }
+                        }
+                    });
+                }
+            }
+        });
+    }
 
     // Helper function to get current time
     function getCurrentTime() {
@@ -139,6 +181,61 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         return cookieValue;
+    }
+
+    function createFileMessageHTML(fileData) {
+        if (!fileData) return 'File unavailable';
+
+        if (fileData.file_type && fileData.file_type.toLowerCase().startsWith('image/')) {
+            return `
+                <div>
+                    <img src="${fileData.file_url}" alt="${fileData.filename}" style="max-width: 200px; max-height: 150px; border-radius: 5px; margin-bottom: 5px;">
+                    <div><a href="${fileData.file_url}" download style="color: white; text-decoration: underline;">${fileData.filename}</a></div>
+                </div>`;
+        } else if (fileData.file_type === 'application/pdf' ||
+                  (fileData.filename && fileData.filename.toLowerCase().endsWith('.pdf'))) {
+            // For PDFs - show PDF icon
+            return `
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="white" style="margin-bottom: 5px;">
+                        <path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z"/>
+                    </svg>
+                    <div><a href="${fileData.file_url}" target="_blank" download style="color: white; text-decoration: underline;">${fileData.filename}</a></div>
+                </div>`;
+        } else {
+            // For other files - generic file icon
+            return `
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="white" style="margin-bottom: 5px;">
+                        <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                    </svg>
+                    <div><a href="${fileData.file_url}" download style="color: white; text-decoration: underline;">${fileData.filename}</a></div>
+                    <small style="color: rgba(255,255,255,0.7);">${formatFileSize(fileData.file_size)}</small>
+                </div>`;
+        }
+    }
+
+    // Function to fetch file details from the server
+    async function fetchFileDetails(fileId) {
+        try {
+            const response = await fetch(`/service_worker/get-file-details/${fileId}/`, {
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                credentials: 'same-origin'
+            });
+
+            if (!response.ok) {
+                console.error('Failed to fetch file details:', response.status);
+                return null;
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching file details:', error);
+            return null;
+        }
     }
 
     // Get CSRF token
@@ -281,12 +378,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     'receiver': receiver,
                     'type': 'text'
                 }));
-                
+
                 messageInput.value = '';
             }
         };
     }
-    
+
     // Handle Enter key press for text messages
     if (messageInput) {
         messageInput.addEventListener('keyup', function(event) {
@@ -296,4 +393,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // Process existing messages when page loads
+    processExistingMessages();
 });

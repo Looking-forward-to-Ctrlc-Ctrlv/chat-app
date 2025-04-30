@@ -52,6 +52,10 @@ class PersonalChatConsumer(AsyncWebsocketConsumer):
         message_type = data.get('type', 'text')  # Default is text
         file_data = data.get('file_data', None)  # For file uploads
 
+        # Variables to store chat object and modified message
+        chat_obj = None
+        file_id = None
+
         # Save message to database and create notification
         if message_type == 'text':
             # For regular text messages
@@ -59,16 +63,19 @@ class PersonalChatConsumer(AsyncWebsocketConsumer):
         elif message_type == 'file' and file_data:
             # For file messages - save file info to ChatFile model and reference in message
             file_id = await self.save_file(username, self.room_group_name, file_data)
-            file_message = f"Sent a file: {file_data.get('filename', 'unknown')}"
+
+            # Include file_id in the message for later retrieval
+            file_message = f"Sent a file: {file_data.get('filename', 'unknown')} [file_id:{file_id}]"
             chat_obj = await self.save_message(username, self.room_group_name, file_message, receiver, file_id)
 
         # Send message to room group
         message_data = {
             'type': 'chat_message',
-            'message': message,
+            'message': message if message_type == 'text' else chat_obj.message if chat_obj else "File message",
             'username': username,
             'message_type': message_type,
             'file_data': file_data,
+            'message_id': chat_obj.id if chat_obj else None,
             'timestamp': timezone.now().isoformat()
         }
 
@@ -76,50 +83,6 @@ class PersonalChatConsumer(AsyncWebsocketConsumer):
             self.room_group_name,
             message_data
         )
-
-        # Get the other user for notifications
-        other_user_id = self.scope['url_route']['kwargs']['id']
-        other_user = await self.get_user(other_user_id)
-
-        # Send notifications if the receiver is the other user
-        if other_user and other_user.username == receiver:
-            # Get unseen notifications for the receiver
-            unseen_notifications = await self.get_unseen_notifications(other_user_id)
-
-            # Send full unseen notification list
-            await self.channel_layer.group_send(
-                f'{other_user_id}',  # Group name based on user ID
-                {
-                    'type': 'send_notification',
-                    'value': json.dumps({
-                        'unseen_notifications': unseen_notifications,
-                        'unseen_count': len(unseen_notifications)
-                    })
-                }
-            )
-
-            # Send single real-time notification
-            await self.channel_layer.group_send(
-                f'{other_user_id}',
-                {
-                    'type': 'send_single_notification',
-                    'notification': {
-                        'sender_username': username,
-                        'message_preview': message[:50] + '...' if len(message) > 50 else message
-                    }
-                }
-            )
-
-            # Send typing status indicators if requested
-            if 'is_typing' in data:
-                await self.channel_layer.group_send(
-                    self.room_group_name,
-                    {
-                        'type': 'typing_status',
-                        'username': username,
-                        'is_typing': data['is_typing']
-                    }
-                )
 
     # Receive message from room group
     async def chat_message(self, event):
