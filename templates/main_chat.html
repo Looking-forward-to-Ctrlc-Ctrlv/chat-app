@@ -5,25 +5,6 @@
 
 {% block css %}
 <link rel="stylesheet" href="{% static 'css/index.css' %}">
-<style>
-    .file-upload-btn {
-        display: inline-block;
-        cursor: pointer;
-        margin-right: 10px;
-    }
-    .file-input {
-        display: none;
-    }
-    .file-name {
-        font-size: 12px;
-        color: #555;
-        margin-top: 5px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 100px;
-    }
-</style>
 {% endblock %}
 
 {% block content %}
@@ -38,6 +19,11 @@
                 <img src="{% static 'assets/dp.png' %}" alt="" class="profile-image rounded-circle">
                 <span class="ml-2">{{request.user.username}}</span>
                 <span class="float-right mt-2">
+                    <!-- Add New Group Button -->
+                    <button id="new-group-btn" class="btn btn-sm btn-primary mr-2">
+                        <i class="fa fa-users"></i> New Group
+                    </button>
+
                     <div class="notification" style="position: relative; display: inline-block; cursor: pointer;">
                         <i class="fa fa-bell-o" aria-hidden="true"></i>
                         <span class="badge" id="count_badge" style="position: absolute; top: -8px; right: -8px; background-color: red; color: white; border-radius: 50%; padding: 3px 6px; font-size: 10px; display: none;"></span>
@@ -48,6 +34,7 @@
                             </button>
                         </div>
                     </div>
+
                     <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-chat-left-fill mx-3"
                         fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                         <path fill-rule="evenodd"
@@ -62,12 +49,14 @@
             </div>
             <div class="col-sm-8">
                 <img src="{% static 'assets/dp.png' %}" alt="" class="profile-image rounded-circle">
-                <span class="ml-2">{{user.username}}</span>
-                {% if user.userprofilemodel.online_status %}
-                <small id="{{user.username}}_small">Online</small>
-                {% else %}
-                <small id="{{user.username}}_small">Offline</small>
-                {% endif %}
+                <span class="ml-2" id="current-chat-name">{{user.username|default:"Select a chat"}}</span>
+                <small id="current-chat-status">
+                    {% if user.userprofilemodel.online_status %}
+                    <span id="{{user.username}}_small">Online</span>
+                    {% else %}
+                    <span id="{{user.username}}_small">Offline</span>
+                    {% endif %}
+                </small>
                 <span class="float-right mt-2">
                     <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-search" fill="currentColor"
                         xmlns="http://www.w3.org/2000/svg">
@@ -89,17 +78,57 @@
                 <div class="contact-table-scroll">
                     <table class="table table-hover">
                         <tbody>
-                            {% for user in users %}
-                            <tr>
-                                <td><img src="{% static 'assets/dp.png' %}" alt="" class="profile-image rounded-circle">
-                                </td>
-                                {% if user.userprofilemodel.online_status %}
-                                <td><a style="color: green" id="{{user.username}}_status" href="{% url 'chat' username=user.username %}">{{user.username}}</a></td>
-                                {% else %}
-                                <td><a style="color: grey" id="{{user.username}}_status" href="{% url 'chat' username=user.username %}">{{user.username}}</a></td>
-                                {% endif %}
-                            </tr>
-                            {% endfor %}
+                            <!-- Personal Chats Section -->
+                            <tr class="bg-light">
+    <td colspan="2"><strong>Personal Chats</strong></td>
+</tr>
+{% for user in users %}
+<tr class="personal-chat" data-username="{{ user.username }}" data-userid="{{ user.id }}">
+    <td>
+        <img src="{% static 'assets/dp.png' %}" alt="" class="profile-image rounded-circle">
+    </td>
+    <td>
+        <a id="{{ user.username }}_status" href="{% url 'chat' username=user.username %}"
+           style="color: {% if user.userprofilemodel.online_status %}green{% else %}grey{% endif %}">
+            <strong>{{ user.username }}</strong><br>
+            <small>
+                {% if user.last_message %}
+                    {{ user.last_message.message|truncatechars:30 }}
+                {% else %}
+                    No messages yet.
+                {% endif %}
+            </small>
+        </a>
+    </td>
+</tr>
+{% endfor %}
+
+
+                            <!-- Group Chats Section -->
+                        <tr class="bg-light">
+                            <td colspan="2"><strong>Group Chats</strong></td>
+                        </tr>
+                        {% for group in groups %}
+                        <tr class="group-chat" data-groupid="{{ group.id }}">
+                            <td>
+                                <div class="group-avatar">
+                                    {{ group.name|first|upper }}
+                                </div>
+                            </td>
+                            <td>
+                                <span>{{ group.name }}</span>
+                                <small class="d-block text-muted">
+                                    {% with last_message=group.messages.last %}
+                                    {% if last_message %}
+                                    {{ last_message.sender.username }}: {{ last_message.content|truncatechars:20 }}
+                                    {% else %}
+                                    No messages yet
+                                    {% endif %}
+                                    {% endwith %}
+                                </small>
+                            </td>
+                        </tr>
+                        {% endfor %}
                         </tbody>
                     </table>
                 </div>
@@ -125,7 +154,7 @@
                             <tr>
                                 <td>
                                     <p class="bg-primary p-2 mt-2 mr-5 shadow-sm text-white float-left rounded">
-                                        {{message.message}}
+                                        {{message.sender}}: {{message.message}}
                                     </p>
                                 </td>
                                 <td>
@@ -138,7 +167,7 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="row message-box p-3">
+                <div class="row message-box p-3" id="message-box">
                     <div class="col-sm-2 mt-2">
                         <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-emoji-smile" fill="currentColor"
                             xmlns="http://www.w3.org/2000/svg">
@@ -150,7 +179,6 @@
                                 d="M7 6.5C7 7.328 6.552 8 6 8s-1-.672-1-1.5S5.448 5 6 5s1 .672 1 1.5zm4 0c0 .828-.448 1.5-1 1.5s-1-.672-1-1.5S9.448 5 10 5s1 .672 1 1.5z" />
                         </svg>
 
-                        <!-- File upload button and input -->
                         <label for="myFile" class="file-upload-btn">
                             <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-paperclip" fill="currentColor"
                                 xmlns="http://www.w3.org/2000/svg">
@@ -162,6 +190,8 @@
                         <div id="selected-file-name" class="file-name"></div>
 
                         <input type="hidden" name="thread_name" value="{{ thread_name }}">
+                        <input type="hidden" id="current-chat-type" value="personal">
+                        <input type="hidden" id="current-chat-id" value="{{ user.id|default:'' }}">
                     </div>
                     <div class="col-sm-8">
                         <input type="text" class="form-control" id="message_input" placeholder="Write message...">
@@ -177,6 +207,30 @@
     </div>
 </div>
 
+<!-- Group Creation Modal -->
+<div id="group-creation-modal" class="group-creation-modal">
+    <div class="group-creation-content">
+        <span class="close-group-modal">&times;</span>
+        <h3>Create New Group</h3>
+        <div class="form-group">
+            <label for="group-name">Group Name</label>
+            <input type="text" class="form-control" id="group-name" placeholder="Enter group name">
+        </div>
+        <div class="form-group">
+            <label>Select Members</label>
+            <div class="group-member-list">
+                {% for user in users %}
+                <div class="group-member-item">
+                    <input type="checkbox" id="user-{{ user.id }}" value="{{ user.id }}">
+                    <label for="user-{{ user.id }}">{{ user.username }}</label>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <button id="create-group-btn" class="btn btn-primary">Create Group</button>
+    </div>
+</div>
+
 <!-- Data for JavaScript -->
 {{user.id|json_script:"json-username"}}
 {{user.username|json_script:"json-username-receiver"}}
@@ -186,6 +240,7 @@
 
 {% block javascript %}
 <script src="{% static 'js/chat.js' %}"></script>
+<script src="{% static 'js/groupchat.js' %}"></script>
 <script src="{% static 'js/online_status.js' %}"></script>
 <script src="{% static 'js/notify.js' %}"></script>
 
@@ -203,15 +258,3 @@
     });
 </script>
 {% endblock %}
-
-<script>
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register("{% static 'sw.js' %}")
-            .then(function(reg) {
-                console.log('ServiceWorker registered with scope:', reg.scope);
-            })
-            .catch(function(err) {
-                console.error('ServiceWorker registration failed:', err);
-            });
-    }
-</script>

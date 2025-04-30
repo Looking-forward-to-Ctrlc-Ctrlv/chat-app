@@ -49,6 +49,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Real-time file message with all data already available
             const fileData = data.file_data;
             messageContent = createFileMessageHTML(fileData);
+            location.reload();
         } else if (data.message && (data.message.startsWith('Sent a file:') || data.message.includes('[file_id:'))) {
             // This is a file message loaded after refresh - extract file ID
             const fileIdMatch = data.message.match(/\[file_id:(\d+)\]/);
@@ -236,6 +237,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error fetching file details:', error);
             return null;
         }
+
     }
 
     // Get CSRF token
@@ -337,12 +339,13 @@ document.addEventListener('DOMContentLoaded', function() {
                                 'file_size': file.size
                             }
                         }));
-
+                        location.reload();
                         // Reset file input and message placeholder
                         fileInput.value = '';
                         fileNameDisplay.textContent = '';
                         fileNameDisplay.style.display = 'none';
                         messageInput.placeholder = 'Write message...';
+                        location.reload();
                     } else {
                         // Show error message
                         document.getElementById(tempMessageId).innerHTML = `
@@ -368,6 +371,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <p><small class="p-1 shadow-sm">${getCurrentTime()}</small></p>
                         </td>`;
                 }
+                location.reload();
             }
 
             // Handle text message if present

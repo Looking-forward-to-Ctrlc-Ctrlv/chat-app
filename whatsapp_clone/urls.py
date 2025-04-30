@@ -28,5 +28,6 @@ urlpatterns = [
     path('', index, name='home'),
     path('chat/<str:username>/', chatPage, name='chat'),
     path('mark-notifications-seen/', mark_notifications_seen, name='mark_notifications_seen'),
-    path('service_worker/',include("chats.urls"))
+    path('service_worker/',include("chats.urls")),
+    path('group/',include("groups.urls"))
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

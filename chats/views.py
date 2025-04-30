@@ -12,11 +12,8 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.http import HttpResponse
 import os
+from groups.models import Group
 # Create your views here.
-
-
-
-
 
 User = get_user_model()
 
@@ -30,12 +27,31 @@ def chatPage(request, username):
     user_obj = User.objects.get(username=username)
     users = User.objects.exclude(username=request.user.username)
 
-    if request.user.id > user_obj.id:
-        thread_name = f'chat_{request.user.id}-{user_obj.id}'
-    else:
-        thread_name = f'chat_{user_obj.id}-{request.user.id}'
+    # Get latest messages for ALL users at once
+    latest_messages = {}
+    for user in users:
+        uid1, uid2 = sorted([request.user.id, user.id])
+        if request.user.id > user_obj.id:
+            thread_name = f'chat_{request.user.id}-{user_obj.id}'
+        else:
+            thread_name = f'chat_{user_obj.id}-{request.user.id}'
+        last_message = ChatModel.objects.filter(thread_name=thread_name).order_by('-timestamp').first()
+        latest_messages[user.id] = last_message  # Store message object directly
+
+    # Attach last message to each user object
+    for user in users:
+        user.last_message = latest_messages.get(user.id)
     message_objs = ChatModel.objects.filter(thread_name=thread_name)
-    return render(request, 'main_chat.html', context={'user': user_obj, 'users': users, 'messages': message_objs})
+    return render(request, 'main_chat.html', {
+        'user': user_obj,
+        'users': users,
+        # Remove 'latest_messages' from context - no longer needed
+        'messages': message_objs,
+        'groups': Group.objects.filter(members=request.user),
+        'thread_name': thread_name
+    })
+
+
 
 
 def mark_notifications_seen(request):
@@ -136,3 +152,5 @@ def get_file_details(request, file_id):
         return JsonResponse({'error': 'File not found'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
